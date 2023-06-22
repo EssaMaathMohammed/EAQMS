@@ -1,14 +1,14 @@
 // connection code
 #include <Sodaq_RN2483.h>
 #include <TheThingsNetwork.h>
+#include <CayenneLPP.h>
 
 #define debugSerial SerialUSB
 #define loraSerial Serial2
 #define freqPlan TTN_FP_EU868
 
-#define NIBBLE_TO_HEX_CHAR(i) ((i <= 9) ? ('0' + i) : ('A' - 10 + i))
-#define HIGH_NIBBLE(i) ((i >> 4) & 0x0F)
-#define LOW_NIBBLE(i) (i & 0x0F)
+// Initialize CayenneLPP library
+CayenneLPP lpp(51);
 
 TheThingsNetwork ttn(loraSerial, debugSerial, freqPlan);
 
@@ -49,8 +49,16 @@ void setupLoRaOTAA() {
 }
 
 void loop() {
-    String reading = "23.5";
-  switch (LoRaBee.send(1,(uint8_t*)reading.c_str(), reading.length()))
+
+    
+  // Prepare data for sending over LoRa
+  //restting the payload
+  lpp.reset();
+  float reading = 23.5;
+
+  lpp.addTemperature(1, reading);
+
+  switch (LoRaBee.send(1, lpp.getBuffer(), lpp.getSize()))
   {
   case NoError:
     debugSerial.println("Successful transmission.");
@@ -89,6 +97,3 @@ void loop() {
   }
 }
 
-static void getHWEUI() {
-    uint8_t len = LoRaBee.getHWEUI(DevEUI, sizeof(DevEUI));
-}
