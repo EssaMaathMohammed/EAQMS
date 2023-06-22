@@ -7,9 +7,12 @@
 #define loraSerial Serial2
 #define freqPlan TTN_FP_EU868
 
+<<<<<<< HEAD
 int led = 13;
 int digitalPin = 2;
 int digitalVal; // digital readings
+=======
+>>>>>>> ee9960d9c46011e73da01afdd3a6254ef6a151a7
 // Initialize CayenneLPP library
 CayenneLPP lpp(51);
 
@@ -56,6 +59,7 @@ void setupLoRaOTAA() {
 
 void loop() {
 
+<<<<<<< HEAD
   digitalVal = digitalRead(digitalPin); 
   if(digitalVal == HIGH) // if flame is detected
   {
@@ -65,14 +69,23 @@ void loop() {
   {
     digitalWrite(led, LOW); // turn OFF Arduino's LED
   }
+=======
+    
+>>>>>>> ee9960d9c46011e73da01afdd3a6254ef6a151a7
   // Prepare data for sending over LoRa
   //restting the payload
   lpp.reset();
   float reading = 23.5;
+<<<<<<< HEAD
   debugSerial.println(digitalVal);
 
   lpp.addTemperature(1, reading);
   lpp.addDigitalInput(2, digitalVal);
+=======
+
+  lpp.addTemperature(1, reading);
+
+>>>>>>> ee9960d9c46011e73da01afdd3a6254ef6a151a7
   switch (LoRaBee.send(1, lpp.getBuffer(), lpp.getSize()))
   {
   case NoError:
