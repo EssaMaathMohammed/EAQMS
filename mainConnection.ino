@@ -1,14 +1,17 @@
 // connection code
 #include <Sodaq_RN2483.h>
 #include <TheThingsNetwork.h>
+#include <CayenneLPP.h>
 
 #define debugSerial SerialUSB
 #define loraSerial Serial2
 #define freqPlan TTN_FP_EU868
 
-#define NIBBLE_TO_HEX_CHAR(i) ((i <= 9) ? ('0' + i) : ('A' - 10 + i))
-#define HIGH_NIBBLE(i) ((i >> 4) & 0x0F)
-#define LOW_NIBBLE(i) (i & 0x0F)
+int led = 13;
+int digitalPin = 2;
+int digitalVal; // digital readings
+// Initialize CayenneLPP library
+CayenneLPP lpp(51);
 
 TheThingsNetwork ttn(loraSerial, debugSerial, freqPlan);
 
@@ -30,6 +33,9 @@ void setup() {
     LoRaBee.init(loraSerial, LORA_RESET);
 
     setupLoRa();
+    //sensors
+    pinMode(led, OUTPUT);
+    pinMode(digitalPin, INPUT);
 }
 
 void setupLoRa() {
@@ -49,8 +55,25 @@ void setupLoRaOTAA() {
 }
 
 void loop() {
-    String reading = "23.5";
-  switch (LoRaBee.send(1,(uint8_t*)reading.c_str(), reading.length()))
+
+  digitalVal = digitalRead(digitalPin); 
+  if(digitalVal == HIGH) // if flame is detected
+  {
+    digitalWrite(led, HIGH); // turn ON Arduino's LED
+  }
+  else
+  {
+    digitalWrite(led, LOW); // turn OFF Arduino's LED
+  }
+  // Prepare data for sending over LoRa
+  //restting the payload
+  lpp.reset();
+  float reading = 23.5;
+  debugSerial.println(digitalVal);
+
+  lpp.addTemperature(1, reading);
+  lpp.addDigitalInput(2, digitalVal);
+  switch (LoRaBee.send(1, lpp.getBuffer(), lpp.getSize()))
   {
   case NoError:
     debugSerial.println("Successful transmission.");
@@ -89,6 +112,3 @@ void loop() {
   }
 }
 
-static void getHWEUI() {
-    uint8_t len = LoRaBee.getHWEUI(DevEUI, sizeof(DevEUI));
-}
