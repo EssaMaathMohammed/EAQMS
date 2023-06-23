@@ -2,19 +2,20 @@
 #include <Sodaq_RN2483.h>
 #include <TheThingsNetwork.h>
 #include <CayenneLPP.h>
-
+#include <MQ135.h> 
 #define debugSerial SerialUSB
 #define loraSerial Serial2
 #define freqPlan TTN_FP_EU868
 
-<<<<<<< HEAD
+
 int led = 13;
 int digitalPin = 2;
 int digitalVal; // digital readings
-=======
->>>>>>> ee9960d9c46011e73da01afdd3a6254ef6a151a7
+
 // Initialize CayenneLPP library
 CayenneLPP lpp(51);
+// Initialize MQ135 
+MQ135 gasSensor = MQ135(A0);
 
 TheThingsNetwork ttn(loraSerial, debugSerial, freqPlan);
 
@@ -59,7 +60,7 @@ void setupLoRaOTAA() {
 
 void loop() {
 
-<<<<<<< HEAD
+
   digitalVal = digitalRead(digitalPin); 
   if(digitalVal == HIGH) // if flame is detected
   {
@@ -69,23 +70,19 @@ void loop() {
   {
     digitalWrite(led, LOW); // turn OFF Arduino's LED
   }
-=======
-    
->>>>>>> ee9960d9c46011e73da01afdd3a6254ef6a151a7
+
   // Prepare data for sending over LoRa
   //restting the payload
   lpp.reset();
-  float reading = 23.5;
-<<<<<<< HEAD
+    // Measure CO2 and print the value to the debug serial
+  float co2Val = co2();
+  debugSerial.println(co2Val);
+
   debugSerial.println(digitalVal);
 
-  lpp.addTemperature(1, reading);
+  lpp.addTemperature(1, co2Val);
   lpp.addDigitalInput(2, digitalVal);
-=======
 
-  lpp.addTemperature(1, reading);
-
->>>>>>> ee9960d9c46011e73da01afdd3a6254ef6a151a7
   switch (LoRaBee.send(1, lpp.getBuffer(), lpp.getSize()))
   {
   case NoError:
@@ -125,3 +122,14 @@ void loop() {
   }
 }
 
+float co2(){
+  float co2_ppm;
+  // Take multiple CO2 readings for better accuracy
+  for (int i = 0 ; i < 5 ; i++){
+    co2_ppm = gasSensor.getPPM(); 
+    delay(2000);
+  }
+  // Log the CO2 concentration
+  debugSerial.print("CO2 concentration (ppm): ");
+  return co2_ppm;
+}
