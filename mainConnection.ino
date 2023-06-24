@@ -2,8 +2,10 @@
 #include <Sodaq_RN2483.h>
 #include <TheThingsNetwork.h>
 #include <CayenneLPP.h>
+#include <MQ131.h>
 #include <MQ135.h> 
 #include <SensirionI2CSen5x.h>
+#include <ArduinoLowPower.h>
 
 #define debugSerial SerialUSB
 #define loraSerial Serial2
@@ -14,21 +16,21 @@ SensirionI2CSen5x sen55;
 uint16_t error;
 char errorMessage[256];
 int led = 13;
-int digitalPin = 2;
-int digitalVal; // digital readings
+int digitalPin = 7;
+int FlameVal; // digital readings
 
 // Initialize CayenneLPP library
 CayenneLPP lpp(51);
 // Initialize MQ135 
-MQ135 gasSensor = MQ135(A0);
+MQ135 gasSensor = MQ135(A4);
 
 TheThingsNetwork ttn(loraSerial, debugSerial, freqPlan);
 
 static uint8_t DevEUI[8] { 0x00, 0x04, 0xA3, 0x0B, 0x00, 0xE8, 0xBC, 0xA6 };
 
-const uint8_t AppEUI[8] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 };
+const uint8_t AppEUI[8] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
-const uint8_t AppKey[16] = { 0xC3, 0x73, 0x8B, 0x2C, 0x91, 0xBC, 0xC2, 0xB0, 0x78, 0x0A, 0x7F, 0x9C, 0xF7, 0x11, 0x25, 0xA0 };
+const uint8_t AppKey[16] = { 0xCA, 0xC8, 0x2D, 0xD5, 0xAC, 0xDD, 0xC7, 0xD9, 0x2B, 0xB2, 0xD1, 0x9F, 0x46, 0x8E, 0xC3, 0x24 };
 
 void setup() {
 
@@ -42,11 +44,17 @@ void setup() {
     LoRaBee.init(loraSerial, LORA_RESET);
 
     setupLoRa();
+
     //sensors
+    MQ131.begin(2, A5, LOW_CONCENTRATION, 1000000);  
+    SerialUSB.println("Calibration in progress...");
+    MQ131.calibrate();
+    SerialUSB.println("Calibration done!");
+
     pinMode(led, OUTPUT);
     pinMode(digitalPin, INPUT);
 
-      // Start I2C communication
+    // Start I2C communication
     Wire.begin();
     delay(1000);
     sen55.begin(Wire);
@@ -83,6 +91,8 @@ void setupLoRaOTAA() {
 }
 
 void loop() {
+
+  float ozoneval = ozone();
   float* sensorValues = getSensorValues();
   float pm1 = sensorValues[0];
   float pm2_5 = sensorValues[1];
@@ -94,6 +104,9 @@ void loop() {
   float nox = sensorValues[7];
 
   // Print the sensor values to the debug serial
+  SerialUSB.print("Concentration O3 : ");
+  SerialUSB.print(ozoneval);
+  SerialUSB.println(" ppb");
   debugSerial.print("MassConcentrationPm1:");
   debugSerial.print(pm1);
   debugSerial.print("\t");
@@ -107,6 +120,8 @@ void loop() {
   debugSerial.print(pm10);
   debugSerial.print("\t");
   debugSerial.print("AmbientHumidity:");
+
+
   if (isnan(humidity)) {
       debugSerial.print("n/a");
   } else {
@@ -135,8 +150,8 @@ void loop() {
   }
   delay(1000);
 
-  digitalVal = digitalRead(digitalPin); 
-  if(digitalVal == HIGH) // if flame is detected
+  FlameVal = digitalRead(digitalPin); 
+  if(FlameVal == HIGH) // if flame is detected
   {
     digitalWrite(led, HIGH); // turn ON Arduino's LED
   }
@@ -152,10 +167,18 @@ void loop() {
   float co2Val = co2();
   debugSerial.println(co2Val);
 
-  debugSerial.println(digitalVal);
+  debugSerial.println(FlameVal);
 
   lpp.addTemperature(1, co2Val);
-  lpp.addDigitalInput(2, digitalVal);
+  lpp.addDigitalInput(2, FlameVal);
+  lpp.addAnalogInput(3, ozoneval);
+  lpp.addTemperature(4, voc);
+  lpp.addTemperature(5, temp);
+  lpp.addRelativeHumidity(6,humidity);
+  lpp.addTemperature(7, pm1);
+  lpp.addTemperature(8, pm2_5);
+  lpp.addTemperature(9, pm4);
+  lpp.addTemperature(10, pm10);
 
   switch (LoRaBee.send(1, lpp.getBuffer(), lpp.getSize()))
   {
@@ -194,6 +217,8 @@ void loop() {
   default:
   break;
   }
+  // Sleep for 3 minutes (3 * 60 * 1000 milliseconds)
+  LowPower.sleep(3 * 60 * 1000);
 }
 
 float co2(){
@@ -254,4 +279,12 @@ float* getSensorValues() {
       
   }
   return sensorValues;
+}
+
+float ozone(){
+  SerialUSB.println("Sampling...");
+  MQ131.sample();
+  float val = MQ131.getO3(PPB);
+  SerialUSB.print(val);
+  return val;
 }
